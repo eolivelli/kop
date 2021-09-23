@@ -303,9 +303,6 @@ public abstract class KafkaAuthorizationTestBase extends KopProtocolHandlerTestB
             assertTrue(topics.contains(newTopic));
         }
 
-        assertEquals(topics.size(), 1);
-        assertTrue(topics.contains(newTopic));
-
         // Cleanup
         kConsumer.close();
         adminClient.close();
