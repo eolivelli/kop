@@ -442,11 +442,10 @@ public class GroupMetadataManager {
                                                     ByteBuffer buffer,
                                                     long timestamp) {
         return getOffsetsTopicProducer(groupId)
-            .thenComposeAsync(f -> f.newMessage()
+            .thenCompose(f -> f.newMessage()
                     .keyBytes(key)
                     .value(buffer)
-                    .eventTime(timestamp).sendAsync()
-                , scheduler);
+                    .eventTime(timestamp).sendAsync());
     }
 
     public CompletableFuture<Map<TopicPartition, Errors>> storeOffsets(
@@ -472,12 +471,13 @@ public class GroupMetadataManager {
     ) {
         // first filter out partitions with offset metadata size exceeding limit
         Map<TopicPartition, OffsetAndMetadata> filteredOffsetMetadata =
+                Collections.synchronizedMap(
             offsetMetadata.entrySet().stream()
                 .filter(entry -> validateOffsetMetadataLength(entry.getValue().metadata()))
                 .collect(Collectors.toMap(
                     e -> e.getKey(),
                     e -> e.getValue()
-                ));
+                )));
 
         group.inLock(() -> {
             if (!group.hasReceivedConsistentOffsetCommits()) {
@@ -546,8 +546,11 @@ public class GroupMetadataManager {
 
         // dummy offset commit key
         byte[] key = offsetCommitKey(group.groupId(), new TopicPartition("", -1), namespacePrefix);
+        long now = System.nanoTime();
         return storeOffsetMessage(group.groupId(), key, entries.buffer(), timestamp)
             .thenApplyAsync(messageId -> {
+                long end =  System.nanoTime();
+                //log.info("offset write time at {} is {} ns", messageId, end - now);
                 if (!group.is(GroupState.Dead)) {
                     MessageIdImpl lastMessageId = (MessageIdImpl) messageId;
                     long baseOffset = MessageMetadataUtils.getMockOffset(
@@ -567,6 +570,7 @@ public class GroupMetadataManager {
                         }
                     });
                 }
+                // log.info("offset after write time at {} is {} ns", messageId, System.nanoTime() - end);
                 return Errors.NONE;
             }, scheduler)
             .exceptionally(cause -> {
@@ -591,7 +595,7 @@ public class GroupMetadataManager {
 
                 return Errors.UNKNOWN_SERVER_ERROR;
             })
-            .thenApplyAsync(errors -> offsetMetadata.entrySet()
+            .thenApply(errors -> offsetMetadata.entrySet()
                 .stream()
                 .collect(Collectors.toMap(
                     e -> e.getKey(),
@@ -602,7 +606,7 @@ public class GroupMetadataManager {
                             return Errors.OFFSET_METADATA_TOO_LARGE;
                         }
                     }
-                )), scheduler);
+                )));
     }
 
     /**

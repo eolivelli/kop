@@ -1532,6 +1532,7 @@ public class KafkaRequestHandler extends KafkaCommandDecoder {
         checkArgument(offsetCommit.getRequest() instanceof OffsetCommitRequest);
         checkState(getGroupCoordinator() != null,
                 "Group Coordinator not started");
+        long now = System.nanoTime();
 
         OffsetCommitRequest request = (OffsetCommitRequest) offsetCommit.getRequest();
 
@@ -1592,6 +1593,12 @@ public class KafkaRequestHandler extends KafkaCommandDecoder {
 
                         OffsetCommitResponse response = KafkaResponseUtils.newOffsetCommit(offsetCommitResult);
                         resultFuture.complete(response);
+                        long end = System.nanoTime();
+                        //log.info("offset commit ee {}", end - now);
+                    }).exceptionally(err -> {
+                        log.error("bad error while committing offsets", err);
+                        resultFuture.complete(request.getErrorResponse(err));
+                        return null;
                     });
 
                 }
