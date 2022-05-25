@@ -72,8 +72,7 @@ public class MetadataUtils {
             throws PulsarAdminException {
         KopTopic kopTopic = new KopTopic(constructOffsetsTopicBaseName(tenant, conf),
                 constructMetadataNamespace(tenant, conf));
-        String kafkaMetadataNamespace = tenant + "/" + conf.getKafkaMetadataNamespace();
-        createKafkaMetadataIfMissing(tenant, kafkaMetadataNamespace, pulsarAdmin, clusterData, conf, kopTopic,
+        createKafkaMetadataIfMissing(tenant, conf.getKafkaMetadataNamespace(), pulsarAdmin, clusterData, conf, kopTopic,
                 conf.getOffsetsTopicNumPartitions(), false);
     }
 
@@ -84,8 +83,7 @@ public class MetadataUtils {
             throws PulsarAdminException {
         KopTopic kopTopic = new KopTopic(constructTxnLogTopicBaseName(tenant, conf),
                 constructMetadataNamespace(tenant, conf));
-        String kafkaMetadataNamespace = tenant + "/" + conf.getKafkaMetadataNamespace();
-        createKafkaMetadataIfMissing(tenant, kafkaMetadataNamespace, pulsarAdmin, clusterData, conf, kopTopic,
+        createKafkaMetadataIfMissing(tenant, conf.getKafkaMetadataNamespace(), pulsarAdmin, clusterData, conf, kopTopic,
                 conf.getKafkaTxnLogTopicNumPartitions(), false);
         if (conf.isKafkaTransactionProducerIdsStoredOnPulsar()) {
             KopTopic producerIdKopTopic = new KopTopic(constructTxnProducerIdTopicBaseName(tenant, conf),
@@ -109,7 +107,7 @@ public class MetadataUtils {
      * </ul>
      */
     private static void createKafkaMetadataIfMissing(String tenant,
-                                                     String kafkaMetadataNamespace,
+                                                     String namespace,
                                                      PulsarAdmin pulsarAdmin,
                                                      ClusterData clusterData,
                                                      KafkaServiceConfiguration conf,
@@ -121,6 +119,7 @@ public class MetadataUtils {
             log.info("Skipping initialization of topic {} for tenant {}", kopTopic.getFullName(), tenant);
             return;
         }
+        String kafkaMetadataNamespace = tenant + "/" + namespace;
         String cluster = conf.getClusterName();
 
         boolean clusterExists = false;
@@ -225,9 +224,9 @@ public class MetadataUtils {
                             (int) conf.getOffsetsRetentionMinutes(),
                             conf.getSystemTopicRetentionSizeInMB())
                     );
+                    namespaces.setNamespaceMessageTTL(kafkaNamespace, conf.getOffsetsMessageTTL());
                 }
                 namespaces.setCompactionThreshold(kafkaNamespace, MAX_COMPACTION_THRESHOLD);
-                namespaces.setNamespaceMessageTTL(kafkaNamespace, conf.getOffsetsMessageTTL());
             }
         } else {
             List<String> replicationClusters = namespaces.getNamespaceReplicationClusters(kafkaNamespace);
